@@ -194,4 +194,5 @@ cython_debug/
 .cursorindexingignore
 
 
-wisegolf_headers.json
+*wisegolf_headers.json
+*tolkien.py
