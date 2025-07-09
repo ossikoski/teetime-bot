@@ -17,3 +17,6 @@ weekdays = {
     'la': 5,
     'su': 6
 }
+
+def typoless(s):
+    return s.lower().replace('-', '').replace(' ', '')
