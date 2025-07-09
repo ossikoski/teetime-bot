@@ -87,8 +87,6 @@ def _get_wisegolf_reservations(date_delta=5):
         rules_df['comment'] = rules_df_raw['ruleValue'].apply(lambda x: x.get('comment') if isinstance(x, dict) else None)
         rules_df = rules_df[(rules_df['start'] > '2025-06-11') & (rules_df['end'] <= last_date.strftime('%Y-%m-%d'))]
 
-        print(reservations_df.head(50))
-        break
         # Blockers come from rules and comments, merge those:
         merged_rules_df = rules_df.merge(comments_df, on=['start', 'end', 'comment'], how='outer')
 
@@ -105,7 +103,11 @@ def _get_wisegolf_reservations(date_delta=5):
 
 def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
     """
-    Get available teetimes as a df
+    Get free teetimes as a df
+
+    Logic:
+    -First generate possible teetimes and remove from those.
+    -This is because only reservations, not free teetimes, are available via API
     """
     tee_dfs = []
     for prod_i, res_df in enumerate(_get_wisegolf_reservations(date_delta=date_delta)):
@@ -129,6 +131,10 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
             
             for i in tee_df[(tee_df['tee_time'] >= row['start']) & (tee_df['tee_time'] + timedelta(0, 0, 0, 0, 10) <= row['end'])].index:   
                 # Mark rows with a blocker to be dropped
+                
+                # if not isinstance(row['name'], float) and 'Reserved' in row['name']:  # For debugging blockers
+                #     print(row)
+                    
                 if not isinstance(row['comment'], float) or row['status'] == 4:  # If row doesn't have a comment, it is nan, i.e. type float
                     tee_idx_to_drop.append(i)
                 # Add player info
@@ -151,6 +157,6 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
 if __name__ == '__main__':
     # get_wisegolf_teetimes()
     # print(get_wisegolf_teetimes())
-    print(get_wisegolf_teetimes()[0].head(50))
+    print(get_wisegolf_teetimes()[0].tail(10))
     # df = get_wisegolf_teetimes()[0]
     # print(df[df['tee_time'] > '2025-06-14 20:00'].head(30))

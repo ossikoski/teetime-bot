@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from wisegolf import get_wisegolf_teetimes
-from common.utils import products, weekdays
+from common.utils import products, weekdays, typoless
 
 def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
     for df in dfs:  # Per product
@@ -27,6 +27,17 @@ def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
         print(blocks_df)
 
 def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
+    if course:  # Only take dfs that match the course
+        product_idx = []
+        wanted_products = []
+        for i, key in enumerate(list(products.keys())):
+            if typoless(course) in typoless(key):  # Lower and replace for typos
+                product_idx.append(i)
+                wanted_products.append(key)
+    if product:
+        product_idx = [i for i, product in enumerate(list(products.keys())) if typoless(product) in typoless(key)]
+    dfs = [dfs[i] for i in product_idx]
+
     if weekday_abbr:  # Filter dfs if weekday given
         date_delta = _weekday_to_date_delta(weekday_abbr)
         if date_delta == 0:  # If wanted day is today, keep time in the wanted date to not show old times.
@@ -34,14 +45,14 @@ def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
         else:
             wanted_date = datetime.today().date() + timedelta(_weekday_to_date_delta(weekday_abbr))
     for i, df in enumerate(dfs):
-        print(dfs[i].head(50))
-        print(df.dtypes)
-        print(wanted_date.strftime('%Y-%m-%d'))
-        print(type(wanted_date))
+        # print(dfs[i].head(50))
+        # print(df.dtypes)
+        # print(wanted_date.strftime('%Y-%m-%d'))
+        # print(type(wanted_date))
         mask = (wanted_date.strftime('%Y-%m-%d'))
         dfs[i] = dfs[i][dfs[i]['tee_time'].dt.date == pd.to_datetime(wanted_date).date()]
         # dfs[i] = dfs[i][(dfs[i]['tee_time'] >= pd.to_datetime(wanted_date)) & ()]#wanted_date.strftime('%Y-%m-%d')]
-        print(dfs[i])
+        # print(dfs[i])
         break
 
 def _weekday_to_date_delta(weekday_abbr):
@@ -52,4 +63,4 @@ if __name__ == '__main__':
     teetime_dfs = get_wisegolf_teetimes()
 
     #find_free_blocks(dfs=teetime_dfs)
-    # get_teetimes(dfs=teetime_dfs, weekday_abbr='la')
+    get_teetimes(dfs=teetime_dfs, course='tammer', weekday_abbr='la')
