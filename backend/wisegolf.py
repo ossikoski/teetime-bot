@@ -103,7 +103,12 @@ def _get_wisegolf_reservations(date_delta=5):
 
 def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
     """
-    Get free teetimes as a df
+    Get free teetimes as a df, that has columns:
+    -tee_time
+    -players
+    -handicaps
+    -total_hcp
+    -product
 
     Logic:
     -First generate possible teetimes and remove from those.
@@ -145,11 +150,11 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
         # Filter teetimes:
         tee_df.drop(tee_idx_to_drop, inplace=True)
         tee_df = tee_df[tee_df['handicaps'].apply(len) <= 4 - players_looking_to_play]
-        tee_df['total_hcp'] = tee_df['handicaps'].apply(sum)
+        tee_df['total_hcp'] = tee_df['handicaps'].apply(sum).round(1)  # Summing floats gives some random decimals
         tee_df = tee_df[tee_df['total_hcp'] < 110 - players_looking_to_play*35]
         
         tee_df['product'] = list(products.keys())[prod_i]
-
+        tee_df.reset_index(inplace=True)
         tee_dfs.append(tee_df)
 
     return tee_dfs
