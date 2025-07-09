@@ -19,4 +19,5 @@ weekdays = {
 }
 
 def typoless(s):
+    """E.g. for comparing products/course names"""
     return s.lower().replace('-', '').replace(' ', '')

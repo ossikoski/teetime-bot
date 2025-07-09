@@ -2,12 +2,13 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 
-from wisegolf import get_wisegolf_teetimes
+from backend.wisegolf import get_wisegolf_teetimes
 from common.utils import products, weekdays, typoless
 
 def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
+    """Find blocks ("From xx:xx to xx:xx") that are completely free from the given dfs."""
     for df in dfs:  # Per product
-        # Take only empty tees to make blocks
+        # Take only empty tees to make blocks  # TODO ?
         empty_tee_df = df[df['players'].apply(lambda x: len(x) == 0)].copy()
         # Calculate gaps in minutes
         diff = empty_tee_df['tee_time'].diff().dt.total_seconds().div(60)
@@ -24,9 +25,11 @@ def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
         blocks_df.loc[mask, 'block'] = (
             blocks_df.loc[mask, 'first'].dt.strftime('%H:%M') + ' to ' + blocks_df.loc[mask, 'last'].dt.strftime('%H:%M')
         )
+        print(df['product'][0])
         print(blocks_df)
 
 def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
+    """Filter teetimes based on params"""
     if course:  # Only take dfs that match the course
         product_idx = []
         wanted_products = []
@@ -53,6 +56,7 @@ def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
         dfs[i] = dfs[i][dfs[i]['tee_time'].dt.date == pd.to_datetime(wanted_date).date()]
         # dfs[i] = dfs[i][(dfs[i]['tee_time'] >= pd.to_datetime(wanted_date)) & ()]#wanted_date.strftime('%Y-%m-%d')]
         # print(dfs[i])
+        print(df)
         break
 
 def _weekday_to_date_delta(weekday_abbr):
@@ -62,5 +66,5 @@ def _weekday_to_date_delta(weekday_abbr):
 if __name__ == '__main__':
     teetime_dfs = get_wisegolf_teetimes()
 
-    #find_free_blocks(dfs=teetime_dfs)
+    # find_free_blocks(dfs=teetime_dfs)
     get_teetimes(dfs=teetime_dfs, course='tammer', weekday_abbr='la')
