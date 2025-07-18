@@ -1,3 +1,6 @@
+from datetime import datetime
+
+
 products = {
     'Tammer-golf 9r': 424,
     'Nokiarivergolf River': 89,
@@ -21,3 +24,8 @@ weekdays = {
 def typoless(s):
     """E.g. for comparing products/course names"""
     return s.lower().replace('-', '').replace(' ', '')
+
+
+def weekday_to_date_delta(weekday_abbr):
+    """If you give today's weekday, date delta is 0."""
+    return (weekdays[weekday_abbr] - datetime.today().weekday() + 7) % 7

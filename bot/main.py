@@ -5,9 +5,10 @@ import matplotlib.pyplot as plt
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-from tolkien import tolkien
-from backend.wisegolf import get_wisegolf_teetimes
 from backend.handle_teetimes import get_teetimes
+from backend.wisegolf import get_wisegolf_teetimes
+from common.utils import weekdays, weekday_to_date_delta
+from tolkien import tolkien
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -20,12 +21,40 @@ Toistaiseksi botti kattaa wisegolfin tampereen alueen tiiajat. Kokeile komennoll
     )
 
 async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    teetimes = get_wisegolf_teetimes(date_delta=2, players_looking_to_play=1)[0]  # TODO
+    if len(context.args) == 0:  # TODO More parameter handling
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Usage: /teetimes <players> [course] [weekday], where number of players is required.'
+        )
+        return
+    players = int(context.args[0])
+    if players < 1 or players > 4:
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Usage: /teetimes <players> [course] [weekday], where number of players must be 1 to 4.'
+        )
+        return
+    if len(context.args) >= 1:
+        course = context.args[1]
+        if course == 'all' or course == 'kaikki':
+            course = None
+    if len(context.args) == 2:
+        weekday = context.args[2]
+        if weekday not in weekdays.keys():
+            context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text='Usage: /teetimes <players> [course] [weekday], where weekday is one of ma, ti, ke, to, pe, la, su.'
+            )
+            return
+        date_delta = weekday_to_date_delta(weekday_abbr=weekday)
+
+    dfs = get_wisegolf_teetimes(date_delta=date_delta, players_looking_to_play=players)
+    
 
     fig, ax = plt.subplots(figsize=(6,10))
     ax.axis('off')
     tbl = ax.table(cellText=teetimes.values, colLabels=teetimes.columns, loc='center', fontsize=130)
-    plt.show()
+    # plt.show()
     plt.savefig('output.pdf', bbox_inches='tight')
     # await context.bot.send_message(chat_id=update.effective_chat.id, text=str(teetimes))
     with open('output.pdf', 'rb') as f:

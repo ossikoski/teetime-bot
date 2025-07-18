@@ -3,10 +3,12 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from backend.wisegolf import get_wisegolf_teetimes
-from common.utils import products, weekdays, typoless
+from common.utils import products, weekdays, typoless, weekday_to_date_delta
+
 
 def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
     """Find blocks ("From xx:xx to xx:xx") that are completely free from the given dfs."""
+    empty_dfs = []
     for df in dfs:  # Per product
         # Take only empty tees to make blocks  # TODO ?
         empty_tee_df = df[df['players'].apply(lambda x: len(x) == 0)].copy()
@@ -42,11 +44,11 @@ def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
     dfs = [dfs[i] for i in product_idx]
 
     if weekday_abbr:  # Filter dfs if weekday given
-        date_delta = _weekday_to_date_delta(weekday_abbr)
+        date_delta = weekday_to_date_delta(weekday_abbr)
         if date_delta == 0:  # If wanted day is today, keep time in the wanted date to not show old times.
-            wanted_date = datetime.today() + timedelta(_weekday_to_date_delta(weekday_abbr))
+            wanted_date = datetime.today() + timedelta(weekday_to_date_delta(weekday_abbr))
         else:
-            wanted_date = datetime.today().date() + timedelta(_weekday_to_date_delta(weekday_abbr))
+            wanted_date = datetime.today().date() + timedelta(weekday_to_date_delta(weekday_abbr))
     for i, df in enumerate(dfs):
         # print(dfs[i].head(50))
         # print(df.dtypes)
@@ -59,12 +61,9 @@ def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
         print(df)
         break
 
-def _weekday_to_date_delta(weekday_abbr):
-    """If you give today's weekday, date delta is 0."""
-    return (weekdays[weekday_abbr] - datetime.today().weekday() + 7) % 7
 
 if __name__ == '__main__':
     teetime_dfs = get_wisegolf_teetimes()
 
-    # find_free_blocks(dfs=teetime_dfs)
-    get_teetimes(dfs=teetime_dfs, course='tammer', weekday_abbr='la')
+    find_free_blocks(dfs=teetime_dfs)
+    # get_teetimes(dfs=teetime_dfs, course='tammer', weekday_abbr='la')

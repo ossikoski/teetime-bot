@@ -1,0 +1,2 @@
+start - Get bot description
+teetimes - Get available teetime slots. Usage: /teetimes <players> [course] [weekday]
