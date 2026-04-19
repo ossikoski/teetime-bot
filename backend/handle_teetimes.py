@@ -27,8 +27,6 @@ def find_free_blocks(dfs, date_delta=5, players_looking_to_play=2):
         blocks_df.loc[mask, 'block'] = (
             blocks_df.loc[mask, 'first'].dt.strftime('%H:%M') + ' to ' + blocks_df.loc[mask, 'last'].dt.strftime('%H:%M')
         )
-        print(df['product'][0])
-        print(blocks_df)
 
 def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
     """Filter teetimes based on params"""
@@ -57,8 +55,6 @@ def get_teetimes(dfs, course=None, product=None, weekday_abbr=None):
         mask = (wanted_date.strftime('%Y-%m-%d'))
         dfs[i] = dfs[i][dfs[i]['tee_time'].dt.date == pd.to_datetime(wanted_date).date()]
         # dfs[i] = dfs[i][(dfs[i]['tee_time'] >= pd.to_datetime(wanted_date)) & ()]#wanted_date.strftime('%Y-%m-%d')]
-        # print(dfs[i])
-        print(df)
         break
 
 
