@@ -19,11 +19,11 @@ def _get_urls(date_delta):
         for delta in range(date_delta):
             date = datetime.today() + timedelta(delta)
             date_str = date.strftime('%Y-%m-%d')
-            reservation_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/?productid={value}&date={date_str}&golf=1')
+            reservation_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/?productid={value}&date={date_str}')#&golf=1')
 
     rules_urls = []
-    for key, value in products.items():
-        rules_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/calendarsettings/?productid={value}&date=2025-06-11')
+    for key, value in products.items():  # TODO: Mikä tää o + fixed date
+        rules_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/calendarsettings/?productid={value}&date=2026-04-19')
 
     return reservation_urls, rules_urls
 
@@ -42,9 +42,11 @@ def _get_wisegolf_reservations(date_delta=5):
         comments_df = pd.DataFrame(columns=['start', 'end', 'comment'])  # Add columns because it might be empty later and trying to merge
         for reservation_url in reservation_urls[prod_i*date_delta:prod_i*date_delta+date_delta]:  # Loop days in a product
             # Get reservations for this day
-            res = requests.get(reservation_url, headers=headers)
-
-            reservations_daily_df = pd.DataFrame(res.json()['rows'])
+            res_json = requests.get(reservation_url, headers=headers).json()
+            if res_json['success'] == False:
+                raise requests.HTTPError(f"Error fetching data for {reservation_url}: {res_json['errors'][0]['message']}")
+            
+            reservations_daily_df = pd.DataFrame(res_json['rows'])
             reservations_daily_df.drop(columns=['dateCreated', 'resources', 'isSellable', 'shareId', 'label', 'overrideName',
                                           'quantity', 'isUserReservation'], inplace=True)
             reservations_daily_df['start'] = pd.to_datetime(reservations_daily_df['start'])
@@ -55,7 +57,7 @@ def _get_wisegolf_reservations(date_delta=5):
 
             # Get private reservations etc ("resourceComments"), these are shown in wiseapp with the little (i) marker
             try:
-                comments_daily_df = pd.DataFrame(res.json()['resourceComments'])
+                comments_daily_df = pd.DataFrame(res_json['resourceComments'])
                 if not comments_daily_df.empty:
                     comments_daily_df.drop(columns=['resourceId', 'commentId', 'public', 'forceConfirmation', 'deleted'], inplace=True)
                     comments_daily_df['dateTimeStart'] = pd.to_datetime(comments_daily_df['dateTimeStart'])
@@ -68,13 +70,14 @@ def _get_wisegolf_reservations(date_delta=5):
                 pass
 
 
-            # Save player data
-            players_daily_df = pd.DataFrame(res.json()['reservationsGolfPlayers'])
-            players_daily_df['name'] = players_daily_df['firstName'] + ' ' + players_daily_df['familyName']
-            players_daily_df.drop(columns=['orderId', 'orderProductId', 'personId', 'isOrderOwner', 'holes', 'isHomeClub',
-                                           'isCart', 'isUserReservation', 'clubName', 'clubId', 'clubAbbreviation', 'status',
-                                           'usedCategoryId', 'firstName', 'familyName', 'namePublic'], inplace=True)
-            players_df = pd.concat([players_df, players_daily_df])
+            # Save player data, not available for simulators:
+            if 'reservationsGolfPlayers' in res_json:
+                players_daily_df = pd.DataFrame(res_json['reservationsGolfPlayers'])
+                players_daily_df['name'] = players_daily_df['firstName'] + ' ' + players_daily_df['familyName']
+                players_daily_df.drop(columns=['orderId', 'orderProductId', 'personId', 'isOrderOwner', 'holes', 'isHomeClub',
+                                            'isCart', 'isUserReservation', 'clubName', 'clubId', 'clubAbbreviation', 'status',
+                                            'usedCategoryId', 'firstName', 'familyName', 'namePublic'], inplace=True)
+                players_df = pd.concat([players_df, players_daily_df])
 
         # Get other blockers (="rules") for a product
         rules_res = requests.get(rules_urls[prod_i], headers=headers)
@@ -88,10 +91,12 @@ def _get_wisegolf_reservations(date_delta=5):
         rules_df = rules_df[(rules_df['start'] > '2025-06-11') & (rules_df['end'] <= last_date.strftime('%Y-%m-%d'))]
 
         # Blockers come from rules and comments, merge those:
-        merged_rules_df = rules_df.merge(comments_df, on=['start', 'end', 'comment'], how='outer')
-
-        # Make one df with reservations and other blockers
-        df = pd.concat([reservations_df, merged_rules_df])
+        if not rules_df.empty and not comments_df.empty:
+            merged_rules_df = rules_df.merge(comments_df, on=['start', 'end', 'comment'], how='outer')
+        else:
+            merged_rules_df = pd.DataFrame(columns=['reservationTimeId'])
+            print(merged_rules_df)
+        
 
         df.sort_values('start', ascending=True, inplace=True)
         df = df.merge(players_df, on='reservationTimeId', how='outer')
