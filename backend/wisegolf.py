@@ -95,9 +95,8 @@ def _get_wisegolf_reservations(date_delta=5):
             merged_rules_df = rules_df.merge(comments_df, on=['start', 'end', 'comment'], how='outer')
         else:
             merged_rules_df = pd.DataFrame(columns=['reservationTimeId'])
-            print(merged_rules_df)
         
-
+        df = pd.concat([reservations_df, merged_rules_df])
         df.sort_values('start', ascending=True, inplace=True)
         df = df.merge(players_df, on='reservationTimeId', how='outer')
         df['product'] = list(products.keys())[prod_i]  # Not quite necessary here but might be good to keep this info for debugging
@@ -144,8 +143,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
                 
                 # if not isinstance(row['name'], float) and 'Reserved' in row['name']:  # For debugging blockers
                 #     print(row)
-                    
-                if not isinstance(row['comment'], float) or row['status'] == 4:  # If row doesn't have a comment, it is nan, i.e. type float
+                if not isinstance(row.get('comment'), float) or row['status'] == 4:  # If row doesn't have a comment, it is nan, i.e. type float
                     tee_idx_to_drop.append(i)
                 # Add player info
                 if not pd.isna(row['handicapActive']):
@@ -167,6 +165,6 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
 if __name__ == '__main__':
     # get_wisegolf_teetimes()
     # print(get_wisegolf_teetimes())
-    print(get_wisegolf_teetimes()[0].tail(10))
+    print(get_wisegolf_teetimes(date_delta=2)[0].tail(10))
     # df = get_wisegolf_teetimes()[0]
     # print(df[df['tee_time'] > '2025-06-14 20:00'].head(30))
