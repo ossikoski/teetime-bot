@@ -6,41 +6,41 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from common.utils import products
+from common.utils import products, get_matching_products, get_dates
 
 
 with open('backend/wisegolf_headers.json') as f:
     headers = json.load(f)
 
 
-def _get_urls(date_delta):
+def _get_urls(dates, filtered_products):
     reservation_urls = []
-    for key, value in products.items():
-        for delta in range(date_delta):
-            date = datetime.today() + timedelta(delta)
+    for key, value in filtered_products.items():
+        for date in dates:
             date_str = date.strftime('%Y-%m-%d')
-            reservation_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/?productid={value}&date={date_str}')#&golf=1')
+            reservation_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/?productid={value}&date={date_str}')
 
     rules_urls = []
-    for key, value in products.items():  # TODO: Mikä tää o + fixed date
-        rules_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/calendarsettings/?productid={value}&date=2026-04-19')
+    for key, value in filtered_products.items():
+        rules_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/calendarsettings/?productid={value}&date={dates[0].strftime("%Y-%m-%d")}')
 
     return reservation_urls, rules_urls
 
-def _get_wisegolf_reservations(date_delta=5):
+def _get_wisegolf_reservations(dates, filtered_products):
     """
     Get reservations or other blockers (="rules") in a single dataframe
     """
-    last_date = datetime.today() + timedelta(date_delta)
+    last_date = max(dates) + timedelta(days=1)
+    num_dates = len(dates)
 
-    reservation_urls, rules_urls = _get_urls(date_delta=date_delta)
+    reservation_urls, rules_urls = _get_urls(dates, filtered_products)
 
     dfs = []
     for prod_i in range(len(rules_urls)):  # Loop products
         reservations_df = pd.DataFrame()  # Save all reservations for this product
         players_df = pd.DataFrame()
         comments_df = pd.DataFrame(columns=['start', 'end', 'comment'])  # Add columns because it might be empty later and trying to merge
-        for reservation_url in reservation_urls[prod_i*date_delta:prod_i*date_delta+date_delta]:  # Loop days in a product
+        for reservation_url in reservation_urls[prod_i*num_dates:prod_i*num_dates+num_dates]:  # Loop days in a product
             # Get reservations for this day
             res_json = requests.get(reservation_url, headers=headers).json()
             if res_json['success'] == False:
@@ -99,13 +99,13 @@ def _get_wisegolf_reservations(date_delta=5):
         df = pd.concat([reservations_df, merged_rules_df])
         df.sort_values('start', ascending=True, inplace=True)
         df = df.merge(players_df, on='reservationTimeId', how='outer')
-        df['product'] = list(products.keys())[prod_i]  # Not quite necessary here but might be good to keep this info for debugging
+        df['product'] = list(filtered_products.keys())[prod_i]  # Not quite necessary here but might be good to keep this info for debugging
 
         dfs.append(df)
 
     return dfs
 
-def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
+def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, specific_date=None):
     """
     Get free teetimes as a df, that has columns:
     -tee_time
@@ -118,12 +118,15 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
     -First generate possible teetimes and remove from those.
     -This is because only reservations, not free teetimes, are available via API
     """
+    dates = get_dates(date_delta, specific_date)
+    filtered_products = get_matching_products(course)
+
     tee_dfs = []
-    for prod_i, res_df in enumerate(_get_wisegolf_reservations(date_delta=date_delta)):
+    for prod_i, res_df in enumerate(_get_wisegolf_reservations(dates, filtered_products)):
         # Generate all possible tee times in 10min intervals
-        for i in range(date_delta):
-            start_time = datetime.combine(datetime.today().date() + timedelta(i), datetime.strptime("06:00", "%H:%M").time())
-            end_time = datetime.combine(datetime.today().date() + timedelta(i), datetime.strptime("20:50", "%H:%M").time())
+        for i, date in enumerate(dates):
+            start_time = datetime.combine(date, datetime.strptime("06:00", "%H:%M").time())
+            end_time = datetime.combine(date, datetime.strptime("20:50", "%H:%M").time())
             if i == 0:
                 tee_times = pd.date_range(start=start_time, end=end_time, freq='10min')
             else:
@@ -156,7 +159,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
         tee_df['total_hcp'] = tee_df['handicaps'].apply(sum).round(1)  # Summing floats gives some random decimals
         tee_df = tee_df[tee_df['total_hcp'] < 110 - players_looking_to_play*35]
         
-        tee_df['product'] = list(products.keys())[prod_i]
+        tee_df['product'] = list(filtered_products.keys())[prod_i]
         tee_df.reset_index(inplace=True)
         tee_dfs.append(tee_df)
 
@@ -165,6 +168,6 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2):
 if __name__ == '__main__':
     # get_wisegolf_teetimes()
     # print(get_wisegolf_teetimes())
-    print(get_wisegolf_teetimes(date_delta=2)[0].tail(10))
+    print(get_wisegolf_teetimes(date_delta=1)[0].tail(10))
     # df = get_wisegolf_teetimes()[0]
     # print(df[df['tee_time'] > '2025-06-14 20:00'].head(30))
