@@ -1,12 +1,12 @@
 import asyncio
 import time
 
-import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from backend.wisegolf import get_wisegolf_teetimes
+from backend.handle_teetimes import find_free_blocks, handle_teetime_dfs
 from common.utils import weekdays, weekday_to_date_delta
 from tolkien import tolkien
 
@@ -54,15 +54,12 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
         specific_date = (datetime.today() + timedelta(weekday_to_date_delta(weekday))).date()
 
     dfs = await asyncio.to_thread(get_wisegolf_teetimes, players_looking_to_play=players, course=course, specific_date=specific_date)
-    
-    fig, ax = plt.subplots(figsize=(6,10))
-    ax.axis('off')
-    tbl = ax.table(cellText=dfs[0].values, colLabels=dfs[0].columns, loc='center', fontsize=130)
-    # plt.show()
-    plt.savefig('output.pdf', bbox_inches='tight')
-    # await context.bot.send_message(chat_id=update.effective_chat.id, text=str(teetimes))
-    with open('output.pdf', 'rb') as f:
-        await context.bot.send_document(chat_id=update.effective_chat.id, document=f, filename='output.pdf')
+
+    df = handle_teetime_dfs(dfs)
+
+    await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=['Testi1', 'Testi2'], is_anonymous=False, allows_multiple_answers=True)
+
+    print('Sent teetime poll', context.args)
 
 def main():
     app = ApplicationBuilder().token(tolkien).build()

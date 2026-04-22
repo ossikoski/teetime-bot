@@ -28,9 +28,13 @@ def find_free_blocks(dfs):
             blocks_df.loc[mask, 'first'].dt.strftime('%H:%M') + ' to ' + blocks_df.loc[mask, 'last'].dt.strftime('%H:%M')
         )
 
-def get_teetimes(dfs):
-    """Post-process teetimes. Course and date filtering is done in the fetch layer."""
-    return dfs
+def handle_teetime_dfs(dfs):
+    """Handle different dataframes into one and sort by time"""
+    if len(dfs) == 1:
+        return dfs[0]
+    df = pd.concat(dfs)
+    df.sort_values('tee_time')
+    return df
 
 
 if __name__ == '__main__':
