@@ -125,8 +125,8 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
     for prod_i, res_df in enumerate(_get_wisegolf_reservations(dates, filtered_products)):
         # Generate all possible tee times in 10min intervals
         for i, date in enumerate(dates):
-            start_time = datetime.combine(date, datetime.strptime("06:00", "%H:%M").time())
-            end_time = datetime.combine(date, datetime.strptime("20:50", "%H:%M").time())
+            start_time = datetime.combine(date, datetime.strptime("10:00", "%H:%M").time())  # TODO Dont hardcode times (for spring, the court was open 10-18:50)
+            end_time = datetime.combine(date, datetime.strptime("18:50", "%H:%M").time())
             if i == 0:
                 tee_times = pd.date_range(start=start_time, end=end_time, freq='10min')
             else:
@@ -168,6 +168,6 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
 if __name__ == '__main__':
     # get_wisegolf_teetimes()
     # print(get_wisegolf_teetimes())
-    print(get_wisegolf_teetimes(date_delta=1)[0].tail(10))
+    print(get_wisegolf_teetimes(date_delta=2)[-1].tail(10))
     # df = get_wisegolf_teetimes()[0]
     # print(df[df['tee_time'] > '2025-06-14 20:00'].head(30))

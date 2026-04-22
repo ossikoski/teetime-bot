@@ -55,9 +55,10 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     dfs = await asyncio.to_thread(get_wisegolf_teetimes, players_looking_to_play=players, course=course, specific_date=specific_date)
 
-    df = handle_teetime_dfs(dfs)
-
-    await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=['Testi1', 'Testi2'], is_anonymous=False, allows_multiple_answers=True)
+    #df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks
+    df = find_free_blocks(dfs)
+    tee_options = df['block'].tolist()
+    await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=tee_options, is_anonymous=False, allows_multiple_answers=True)
 
     print('Sent teetime poll', context.args)
 
@@ -71,6 +72,15 @@ def main():
 
     app.run_polling()
 
+def test():
+    players=2
+    course='Tammer-golf 9r'
+    specific_date=(datetime.today() + timedelta(weekday_to_date_delta('to'))).date()
+    dfs = get_wisegolf_teetimes(players_looking_to_play=players, course=course, specific_date=specific_date)
+    df = find_free_blocks(dfs)
+
+    print(df)
 
 if __name__ == "__main__":
     main()
+    #test()

@@ -7,7 +7,7 @@ from common.utils import weekdays
 
 
 def find_free_blocks(dfs):
-    """Find blocks ("From xx:xx to xx:xx") that are completely free from the given dfs."""
+    """Find blocks ("From xx:xx - xx:xx") that are completely free from the given dfs."""
     empty_dfs = []
     for df in dfs:  # Per product
         # Take only empty tees to make blocks  # TODO ?
@@ -20,13 +20,21 @@ def find_free_blocks(dfs):
         block_id = ((diff != 10) | date_change).cumsum()
         blocks_df = empty_tee_df.groupby(block_id)['tee_time'].agg(['first', 'last'])
 
-        # Blocks with only 10mins show the time, if more it shows "xx to yy"
+        # Blocks with only 10mins show the time, if more it shows "xx - yy"
         blocks_df.loc[blocks_df['first'] == blocks_df['last'], 'block'] = blocks_df['first'].dt.strftime('%H:%M')
 
         mask = blocks_df['first'] != blocks_df['last']
         blocks_df.loc[mask, 'block'] = (
-            blocks_df.loc[mask, 'first'].dt.strftime('%H:%M') + ' to ' + blocks_df.loc[mask, 'last'].dt.strftime('%H:%M')
+            blocks_df.loc[mask, 'first'].dt.strftime('%H:%M') + ' - ' + blocks_df.loc[mask, 'last'].dt.strftime('%H:%M')
         )
+
+        blocks_df['date'] = blocks_df['first'].dt.strftime('%Y-%m-%d')
+        blocks_df['product'] = df['product'].iloc[0] if not df.empty else None
+        empty_dfs.append(blocks_df[['date', 'block', 'product']])
+
+    if not empty_dfs:
+        return pd.DataFrame(columns=['date', 'block', 'product'])
+    return pd.concat(empty_dfs).reset_index(drop=True)
 
 def handle_teetime_dfs(dfs):
     """Handle different dataframes into one and sort by time"""
