@@ -1,8 +1,10 @@
 import asyncio
+import logging
 import time
 
 from datetime import datetime, timedelta
 from telegram import Update
+from telegram.error import NetworkError
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from backend.wisegolf import get_wisegolf_teetimes
@@ -21,7 +23,7 @@ Toistaiseksi botti kattaa wisegolfin Tampereen alueen tiiajat. Kokeile komennoll
     )
 
 async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    print('Teetimes called with args:', context.args)
+    logging.info('Teetimes called with args:', context.args)
     if len(context.args) == 0:  # TODO More parameter handling
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -55,30 +57,41 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     dfs = await asyncio.to_thread(get_wisegolf_teetimes, players_looking_to_play=players, course=course, specific_date=specific_date)
 
-    #df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks
+    #df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks (concat dfs & sort)
     df = find_free_blocks(dfs)
     tee_options = df['block'].tolist()
-    print(tee_options)
 
     if len(tee_options) == 0:  # Handle no available times:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text='Ei vapaita tiiaikoja annetuilla valinnoilla.'
         )
+        logging.info('Sent info for no free teetimes')
     else:
-        await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=tee_options, is_anonymous=False, allows_multiple_answers=True)
-
-    print('Sent teetime poll', context.args)
+        for attempt in range(3):  # Poll sending had connection issues, do a manual retry loop
+            try:
+                await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=tee_options, is_anonymous=False, allows_multiple_answers=True)
+                logging.info('Sent teetime poll', context.args)
+                break
+            except NetworkError:
+                if attempt == 2:
+                    raise
+                await asyncio.sleep(2)
 
 def main():
-    app = ApplicationBuilder().token(tolkien).build()
+    logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
+    logging.getLogger('httpx').setLevel(logging.WARNING)
+    logging.getLogger('httpcore').setLevel(logging.WARNING)
+    #logger = logging.getLogger(__name__)
+
+    app = ApplicationBuilder().token(tolkien).connect_timeout(30).read_timeout(30).write_timeout(30).pool_timeout(30).build()
 
     app.add_handler(CommandHandler('aloita', start))
     app.add_handler(CommandHandler('tiiajat', teetimes))
 
-    print('app running...')
+    logging.info('app running...')
 
-    app.run_polling()
+    app.run_polling(bootstrap_retries=-1)  # Retry bot start indefinitely
 
 def test():
     players=2
@@ -87,7 +100,7 @@ def test():
     dfs = get_wisegolf_teetimes(players_looking_to_play=players, course=course, specific_date=specific_date)
     df = find_free_blocks(dfs)
 
-    print(df)
+    logging.info(df)
 
 if __name__ == "__main__":
     main()
