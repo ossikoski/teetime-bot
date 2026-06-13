@@ -96,16 +96,28 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     raise
                 await asyncio.sleep(2)
 
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    logging.error('Exception while handling update: %s', context.error)
+    if update and update.effective_chat:
+        try:
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text='Tää bugas, koita uudestaan :D'
+            )
+        except Exception:
+            pass
+
+
 def main():
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('httpcore').setLevel(logging.WARNING)
-    #logger = logging.getLogger(__name__)
 
     app = ApplicationBuilder().token(tolkien).connect_timeout(30).read_timeout(30).write_timeout(30).pool_timeout(30).build()
 
     app.add_handler(CommandHandler('aloita', start))
     app.add_handler(CommandHandler('tiiajat', teetimes))
+    app.add_error_handler(error_handler)
 
     logging.info('app running...')
 
