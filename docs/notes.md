@@ -14,3 +14,8 @@
     - 2.1 Näihin blacklist ja whitelist ominaisuus -> Voi myös poissulkea halutut pelaajat
 3) Datan haku teetime.fi sivulta, esim hiisi golf ja messukylä, harjattula
 4) Parametri pelaajien määrä, filtteröi sen mukaan
+
+
+
+### TODO
+- Token vanhenee? Wisegolf tokeni siis

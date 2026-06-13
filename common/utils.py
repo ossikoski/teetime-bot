@@ -3,7 +3,9 @@ from datetime import datetime, timedelta
 
 products = {
     # 'Tammer-golf simulaattori': 683,  # For winter
-    'Tammer-golf 9r': 424,
+    #'Tammer-golf 9r': 424,
+    'Tammer-golf 18r': 120,
+    'Harjattulagolf': 7,
     # 'Nokiarivergolf River': 89,
     # 'Nokiarivergolf River 9r': 384,
     # 'Nokiarivergolf Rock': 88,
