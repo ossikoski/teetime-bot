@@ -58,7 +58,15 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     #df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks
     df = find_free_blocks(dfs)
     tee_options = df['block'].tolist()
-    await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=tee_options, is_anonymous=False, allows_multiple_answers=True)
+    print(tee_options)
+
+    if len(tee_options) == 0:  # Handle no available times:
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text='Ei vapaita tiiaikoja annetuilla valinnoilla.'
+        )
+    else:
+        await context.bot.send_poll(chat_id=update.effective_chat.id, question='Äänestä aikaa', options=tee_options, is_anonymous=False, allows_multiple_answers=True)
 
     print('Sent teetime poll', context.args)
 
