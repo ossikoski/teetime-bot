@@ -169,6 +169,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
                 tee_times = tee_times.append(pd.date_range(start=start_time, end=end_time, freq='10min'))
 
         tee_df = pd.DataFrame({'tee_time': tee_times})
+        tee_df = tee_df[tee_df['tee_time'] >= datetime.now() + timedelta(minutes=10)]  # Only show times at least 10min from now
         tee_df['players'] = tee_df['tee_time'].apply(lambda _: [])  # Player names for this teetime
         tee_df['handicaps'] = tee_df['tee_time'].apply(lambda _: [])  # Players handicaps for this teetime
         tee_df['total_hcp'] = 0  # Total hcp for this teetime
