@@ -27,7 +27,14 @@ def _get_urls(dates, filtered_products):
 
 def _get_wisegolf_reservations(dates, filtered_products):
     """
-    Get reservations or other blockers (="rules") in a single dataframe
+    Get reservations or other blockers (="rules"), also returns opening hours of each product
+
+    Returns
+    -------
+    dfs: list
+        List of dataframes, each product has its own set of blockers
+    open_hours: list
+        Corresponding list of each product's opening hours to use when creating a dataframe of teetimes
     """
     last_date = max(dates) + timedelta(days=1)
     num_dates = len(dates)
@@ -35,6 +42,7 @@ def _get_wisegolf_reservations(dates, filtered_products):
     reservation_urls, rules_urls = _get_urls(dates, filtered_products)
 
     dfs = []
+    open_hours = []  # Open hours per product, extracted from reservationSettings
     for prod_i in range(len(filtered_products)):  # Loop products
         reservations_df = pd.DataFrame()  # Save all reservations for this product
         players_df = pd.DataFrame()
@@ -111,6 +119,12 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
         rules_df = pd.DataFrame(rules_rows, columns=['start', 'end', 'comment'])
 
+        # Extract open hours from reservationSettings (same API call, no extra request)
+        settings = rules_res.json().get('reservationSettings', {})
+        open_start = datetime.strptime(settings['startTime'], '%H:%M:%S').time()
+        open_end = (datetime.combine(datetime.today(), datetime.strptime(settings['endTime'], '%H:%M:%S').time()) - timedelta(minutes=10)).time()  # If course closes at 21, last teetime is 20:50 so redact 10mins
+        open_hours.append({'start': open_start, 'end': open_end})
+
         # Blockers come from rules and comments, merge those:
         if not rules_df.empty and not comments_df.empty:
             merged_rules_df = rules_df.merge(comments_df, on=['start', 'end', 'comment'], how='outer')
@@ -124,7 +138,7 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
         dfs.append(df)
 
-    return dfs
+    return dfs, open_hours
 
 def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, specific_date=None):
     """
@@ -143,11 +157,12 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
     filtered_products = get_matching_products(course)
 
     tee_dfs = []
-    for prod_i, res_df in enumerate(_get_wisegolf_reservations(dates, filtered_products)):
+    res_dfs, open_hours = _get_wisegolf_reservations(dates, filtered_products)
+    for prod_i, res_df in enumerate(res_dfs):
         # Generate all possible tee times in 10min intervals
         for i, date in enumerate(dates):
-            start_time = datetime.combine(date, datetime.strptime("10:00", "%H:%M").time())  # TODO Dont hardcode times (for spring, the court was open 10-18:50)
-            end_time = datetime.combine(date, datetime.strptime("18:50", "%H:%M").time())
+            start_time = datetime.combine(date, open_hours[prod_i]['start'])
+            end_time = datetime.combine(date, open_hours[prod_i]['end'])
             if i == 0:
                 tee_times = pd.date_range(start=start_time, end=end_time, freq='10min')
             else:
