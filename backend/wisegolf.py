@@ -15,13 +15,12 @@ with open('backend/wisegolf_headers.json') as f:
 
 def _get_urls(dates, filtered_products):
     reservation_urls = []
+    rules_urls = []
     for key, value in filtered_products.items():
         for date in dates:
             date_str = date.strftime('%Y-%m-%d')
             reservation_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/?productid={value}&date={date_str}')
 
-    rules_urls = []
-    for key, value in filtered_products.items():
         rules_urls.append(f'https://api.{key.lower().split(' ')[0]}.fi/api/1.0/reservations/calendarsettings/?productid={value}&date={dates[0].strftime("%Y-%m-%d")}')
 
     return reservation_urls, rules_urls
@@ -84,11 +83,33 @@ def _get_wisegolf_reservations(dates, filtered_products):
         rules_df_raw = pd.DataFrame(rules_res.json()['resourceRules'])
         rules_df_raw = rules_df_raw[rules_df_raw['ruleName'] == 'aikaSulku']
 
-        rules_df = pd.DataFrame()
-        rules_df['start'] = pd.to_datetime(rules_df_raw['startDate'] + ' ' + rules_df_raw['startTime'])
-        rules_df['end'] = pd.to_datetime(rules_df_raw['startDate'] + ' ' + rules_df_raw['endTime'])
-        rules_df['comment'] = rules_df_raw['ruleValue'].apply(lambda x: x.get('comment') if isinstance(x, dict) else None)
-        rules_df = rules_df[(rules_df['start'] > '2025-06-11') & (rules_df['end'] <= last_date.strftime('%Y-%m-%d'))]
+        # Expand recurring rules: each rule applies on specific weekdays between startDate and endDate
+        rules_rows = []
+        for _, rule in rules_df_raw.iterrows():
+            rule_start = datetime.strptime(rule['startDate'], '%Y-%m-%d').date()
+            rule_end = datetime.strptime(rule['endDate'], '%Y-%m-%d').date()
+            recurrence = rule['recurrenceDays']  # [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+            comment = rule['ruleValue'].get('comment') if isinstance(rule['ruleValue'], dict) else None
+
+            if recurrence is None:
+                # No recurrence: apply on startDate only if it's in our queried dates
+                rule_start_date = datetime.strptime(rule['startDate'], '%Y-%m-%d').date()
+                if rule_start_date in dates:
+                    start_dt = datetime.combine(rule_start_date, datetime.strptime(rule['startTime'], '%H:%M:%S').time())
+                    end_dt = datetime.combine(rule_start_date, datetime.strptime(rule['endTime'], '%H:%M:%S').time())
+                    rules_rows.append({'start': start_dt, 'end': end_dt, 'comment': comment})
+                continue
+
+            for date in dates:
+                if date < rule_start or date > rule_end:
+                    continue
+                if not recurrence[date.weekday()]:
+                    continue
+                start_dt = datetime.combine(date, datetime.strptime(rule['startTime'], '%H:%M:%S').time())
+                end_dt = datetime.combine(date, datetime.strptime(rule['endTime'], '%H:%M:%S').time())
+                rules_rows.append({'start': start_dt, 'end': end_dt, 'comment': comment})
+
+        rules_df = pd.DataFrame(rules_rows, columns=['start', 'end', 'comment'])
 
         # Blockers come from rules and comments, merge those:
         if not rules_df.empty and not comments_df.empty:
