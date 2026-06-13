@@ -35,7 +35,7 @@ def _get_wisegolf_reservations(dates, filtered_products):
     reservation_urls, rules_urls = _get_urls(dates, filtered_products)
 
     dfs = []
-    for prod_i in range(len(rules_urls)):  # Loop products
+    for prod_i in range(len(filtered_products)):  # Loop products
         reservations_df = pd.DataFrame()  # Save all reservations for this product
         players_df = pd.DataFrame()
         comments_df = pd.DataFrame(columns=['start', 'end', 'comment'])  # Add columns because it might be empty later and trying to merge
@@ -181,7 +181,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
         tee_df = tee_df[tee_df['total_hcp'] < 110 - players_looking_to_play*35]
         
         tee_df['product'] = list(filtered_products.keys())[prod_i]
-        tee_df.reset_index(inplace=True)
+        tee_df.reset_index(drop=True, inplace=True)
         tee_dfs.append(tee_df)
 
     return tee_dfs

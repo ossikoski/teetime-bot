@@ -12,6 +12,8 @@ def find_free_blocks(dfs):
     for df in dfs:  # Per product
         # Take only empty tees to make blocks  # TODO ?
         empty_tee_df = df[df['players'].apply(lambda x: len(x) == 0)].copy()
+        if empty_tee_df.empty:
+            continue
         # Calculate gaps in minutes
         diff = empty_tee_df['tee_time'].diff().dt.total_seconds().div(60)
 
