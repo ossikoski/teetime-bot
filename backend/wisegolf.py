@@ -80,8 +80,13 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
             # Save player data, not available for simulators:
             if 'reservationsGolfPlayers' in res_json:
+                #print("raw players:", res_json['reservationsGolfPlayers'][:3])  # Print first 3 raw player entries
                 players_daily_df = pd.DataFrame(res_json['reservationsGolfPlayers'])
-                players_daily_df['name'] = players_daily_df['firstName'] + ' ' + players_daily_df['familyName']
+                players_daily_df['name'] = np.where(  # Handle full names or "Reserved" values
+                    players_daily_df['firstName'] != '',
+                    players_daily_df['firstName'] + ' ' + players_daily_df['familyName'],
+                    players_daily_df['familyName']
+                )
                 players_daily_df.drop(columns=['orderId', 'orderProductId', 'personId', 'isOrderOwner', 'holes', 'isHomeClub',
                                             'isCart', 'isUserReservation', 'clubName', 'clubId', 'clubAbbreviation', 'status',
                                             'usedCategoryId', 'firstName', 'familyName', 'namePublic'], inplace=True)
@@ -179,6 +184,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
 
         tee_df = pd.DataFrame({'tee_time': tee_times})
         tee_df = tee_df[tee_df['tee_time'] >= datetime.now() + timedelta(minutes=10)]  # Only show times at least 10min from now
+
         if tee_df.empty:  # No teetimes with the given day
             continue
         tee_df['players'] = tee_df['tee_time'].apply(lambda _: [])  # Player names for this teetime
@@ -189,19 +195,24 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
         tee_idx_to_drop = []
         for row_i, row in res_df.iterrows():
             # Loop tee times this reservation/blocker overlaps with
-            
             for i in tee_df[(tee_df['tee_time'] >= row['start']) & (tee_df['tee_time'] + timedelta(0, 0, 0, 0, 10) <= row['end'])].index:   
                 # Mark rows with a blocker to be dropped
                 
                 # if not isinstance(row['name'], float) and 'Reserved' in row['name']:  # For debugging blockers
                 #     print(row)
-                if not isinstance(row.get('comment'), float) or row['status'] == 4:  # If row doesn't have a comment, it is nan, i.e. type float
+                if row['status'] == 4:
                     tee_idx_to_drop.append(i)
+                # elif not isinstance(row.get('comment'), float):  # If row doesn't have a comment, it is nan, i.e. type float
+                #     tee_idx_to_drop.append(i)  # TODO No idea about this logic :D
+                elif pd.notna(row.get('comment')):  # Ai said this would be better
+                    tee_idx_to_drop.append(i)
+
                 # Add player info
                 if not pd.isna(row['handicapActive']):
                     tee_df.at[i, 'handicaps'].append(float(row['handicapActive']))
                     tee_df.at[i, 'players'].append(str(row['name']))
 
+        #print("teeidx", tee_idx_to_drop)
         # Filter based on comment / status = 4:
         tee_df.drop(tee_idx_to_drop, inplace=True)
         # Filter based on number of players
