@@ -68,8 +68,10 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     dfs = await asyncio.to_thread(get_wisegolf_teetimes, players_looking_to_play=players, course=course, specific_date=specific_date)
 
-    #df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks (concat dfs & sort)
+    df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks (concat dfs & sort)
+    print(df)
     df = find_free_blocks(dfs)
+    #print(df)
     tee_options = df['block'].tolist()
 
     # Handle sending the poll / error messages
@@ -97,7 +99,7 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await asyncio.sleep(2)
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logging.error('Exception while handling update: %s', context.error)
+    logging.error('Exception while handling update:', exc_info=context.error)
     if update and update.effective_chat:
         try:
             await context.bot.send_message(
@@ -109,6 +111,9 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 def main():
+    if hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):  # Asyncio setting for windows
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
     logging.getLogger('httpx').setLevel(logging.WARNING)
     logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -135,4 +140,3 @@ def test():
 if __name__ == "__main__":
     main()
     #test()
-
