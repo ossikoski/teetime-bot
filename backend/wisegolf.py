@@ -43,6 +43,7 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
     dfs = []
     open_hours = []  # Open hours per product, extracted from reservationSettings
+    max_hcps = []  # Max handicap per product, extracted from tasoitusraja rule
     for prod_i in range(len(filtered_products)):  # Loop products
         reservations_df = pd.DataFrame()  # Save all reservations for this product
         players_df = pd.DataFrame()
@@ -88,8 +89,16 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
         # Get other blockers (="rules") for a product
         rules_res = requests.get(rules_urls[prod_i], headers=headers)
-        rules_df_raw = pd.DataFrame(rules_res.json()['resourceRules'])
-        rules_df_raw = rules_df_raw[rules_df_raw['ruleName'] == 'aikaSulku']
+        all_rules_df = pd.DataFrame(rules_res.json()['resourceRules'])
+
+        hcp_rule = all_rules_df[all_rules_df['ruleName'] == 'tasoitusraja']
+        if not hcp_rule.empty and isinstance(hcp_rule.iloc[0]['ruleValue'], dict):
+            max_hcps.append(hcp_rule.iloc[0]['ruleValue'].get('default'))
+        else:
+            logging.info('No max hcp info found for the product, defaulting to 110.')
+            max_hcps.append(110)  # Use 110 hcp for teetime as default if no setting was found
+
+        rules_df_raw = all_rules_df[all_rules_df['ruleName'] == 'aikaSulku']
 
         # Expand recurring rules: each rule applies on specific weekdays between startDate and endDate
         rules_rows = []
@@ -138,7 +147,7 @@ def _get_wisegolf_reservations(dates, filtered_products):
 
         dfs.append(df)
 
-    return dfs, open_hours
+    return dfs, open_hours, max_hcps
 
 def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, specific_date=None):
     """
@@ -157,7 +166,7 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
     filtered_products = get_matching_products(course)
 
     tee_dfs = []
-    res_dfs, open_hours = _get_wisegolf_reservations(dates, filtered_products)
+    res_dfs, open_hours, max_hcps = _get_wisegolf_reservations(dates, filtered_products)
     for prod_i, res_df in enumerate(res_dfs):
         # Generate all possible tee times in 10min intervals
         for i, date in enumerate(dates):
@@ -170,9 +179,12 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
 
         tee_df = pd.DataFrame({'tee_time': tee_times})
         tee_df = tee_df[tee_df['tee_time'] >= datetime.now() + timedelta(minutes=10)]  # Only show times at least 10min from now
+        if tee_df.empty:  # No teetimes with the given day
+            continue
         tee_df['players'] = tee_df['tee_time'].apply(lambda _: [])  # Player names for this teetime
         tee_df['handicaps'] = tee_df['tee_time'].apply(lambda _: [])  # Players handicaps for this teetime
         tee_df['total_hcp'] = 0  # Total hcp for this teetime
+        tee_df['max_hcp'] = max_hcps[prod_i]
 
         tee_idx_to_drop = []
         for row_i, row in res_df.iterrows():
@@ -190,11 +202,15 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
                     tee_df.at[i, 'handicaps'].append(float(row['handicapActive']))
                     tee_df.at[i, 'players'].append(str(row['name']))
 
-        # Filter teetimes:
+        # Filter based on comment / status = 4:
         tee_df.drop(tee_idx_to_drop, inplace=True)
+        # Filter based on number of players
         tee_df = tee_df[tee_df['handicaps'].apply(len) <= 4 - players_looking_to_play]
-        tee_df['total_hcp'] = tee_df['handicaps'].apply(sum).round(1)  # Summing floats gives some random decimals
-        tee_df = tee_df[tee_df['total_hcp'] < 110 - players_looking_to_play*35]
+
+        
+        # Filter based on hcp limits
+        tee_df['total_hcp'] = tee_df['handicaps'].apply(sum).round(1)  # Round because summing floats gives some random decimals
+        tee_df = tee_df[tee_df['total_hcp'] < tee_df['max_hcp'] - players_looking_to_play*35]  # TODO hardcoded 35 hcp per player
         
         tee_df['product'] = list(filtered_products.keys())[prod_i]
         tee_df.reset_index(drop=True, inplace=True)
