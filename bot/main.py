@@ -69,7 +69,6 @@ async def teetimes(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dfs = await asyncio.to_thread(get_wisegolf_teetimes, players_looking_to_play=players, course=course, specific_date=specific_date)
 
     df = handle_teetime_dfs(dfs)  # If getting separate teetimes, not blocks (concat dfs & sort)
-    print(df)
     df = find_free_blocks(dfs)
     #print(df)
     tee_options = df['block'].tolist()

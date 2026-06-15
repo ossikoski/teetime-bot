@@ -212,7 +212,6 @@ def get_wisegolf_teetimes(date_delta=5, players_looking_to_play=2, course=None, 
                     tee_df.at[i, 'handicaps'].append(float(row['handicapActive']))
                     tee_df.at[i, 'players'].append(str(row['name']))
 
-        #print("teeidx", tee_idx_to_drop)
         # Filter based on comment / status = 4:
         tee_df.drop(tee_idx_to_drop, inplace=True)
         # Filter based on number of players
